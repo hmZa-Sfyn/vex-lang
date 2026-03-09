@@ -1,0 +1,59 @@
+// examples/fetch_demo.vex
+// Demonstrates fetch, pipes, and async spawning
+
+fn get_json(url) {
+  let res = fetch url
+  if is_err(res) {
+    return res
+  }
+  if !res.ok {
+    return null
+  }
+  return res.json()
+}
+
+fn extract_titles(posts) {
+  return posts.map(fn(p) { p.title })
+}
+
+fn shorten(title) {
+  if len(title) > 40 {
+    return title.slice(0, 40) + "..."
+  }
+  return title
+}
+
+print("Fetching posts from JSONPlaceholder...")
+
+let posts = get_json("https://jsonplaceholder.typicode.com/posts")
+
+if is_err(posts) || posts == null {
+  print("Failed to fetch posts")
+} else {
+  let titles = posts
+    |> extract_titles
+    |> fn(t) { t.slice(0, 5) }   // first 5
+    |> fn(t) { t.map(shorten) }  // shorten each
+
+  print("Top 5 post titles:")
+  for i, title in titles {
+    print("  " + str(i + 1) + ". " + title)
+  }
+}
+
+// Concurrent fetches using spawn + await
+print("\nFetching users and todos concurrently...")
+
+let users_promise = spawn get_json("https://jsonplaceholder.typicode.com/users")
+let todos_promise = spawn get_json("https://jsonplaceholder.typicode.com/todos")
+
+let users = await users_promise
+let todos = await todos_promise
+
+if users != null && !is_err(users) {
+  print("Users:", len(users))
+}
+if todos != null && !is_err(todos) {
+  let done = todos.filter(fn(t) { t.completed })
+  print("Completed todos:", len(done), "/", len(todos))
+}

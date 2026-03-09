@@ -1,0 +1,133 @@
+// examples/language_tour.vex
+// A tour of vex-lang features
+
+// --- Variables ---
+let name = "vex"
+const PI = 3.14159
+
+print("=== Variables ===")
+print("name:", name, "PI:", PI)
+
+// --- Strings & templates ---
+print("\n=== Strings ===")
+let greeting = "Hello, ${name}!"
+print(greeting)
+print("upper:", name.upper())
+print("contains 'e':", name.contains("e"))
+print("repeat:", "ab".replace("b", "B"))
+
+// --- Arrays ---
+print("\n=== Arrays ===")
+let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+let evens   = nums.filter(fn(n) { n % 2 == 0 })
+let doubled = evens.map(fn(n) { n * 2 })
+let sum     = doubled.reduce(fn(acc, n) { acc + n }, 0)
+
+print("evens:", evens.join(", "))
+print("doubled:", doubled.join(", "))
+print("sum:", sum)
+
+// --- Pipes ---
+print("\n=== Pipes ===")
+let result = [1,2,3,4,5,6,7,8,9,10]
+  |> fn(a) { a.filter(fn(n) { n % 2 == 0 }) }
+  |> fn(a) { a.map(fn(n) { n * n }) }
+  |> fn(a) { a.join(" + ") }
+
+print("pipe result:", result)
+
+// --- Objects ---
+print("\n=== Objects ===")
+let person = {
+  name: "Alice",
+  age: 30,
+  greet: fn() { "Hi, I'm " + name }
+}
+print("person:", person.name, "age:", person.age)
+print("keys:", keys(person).join(", "))
+
+// --- Match ---
+print("\n=== Match ===")
+fn status_label(code) {
+  match code {
+    200 => { return "OK" }
+    201 => { return "Created" }
+    400 => { return "Bad Request" }
+    404 => { return "Not Found" }
+    500 => { return "Internal Server Error" }
+    _   => { return "Unknown" }
+  }
+}
+
+for code in [200, 201, 404, 500, 999] {
+  print(str(code) + " →", status_label(code))
+}
+
+// --- Error handling ---
+print("\n=== Error handling ===")
+fn safe_divide(a, b) {
+  if b == 0 {
+    return null
+  }
+  return a / b
+}
+
+let div1 = safe_divide(10, 2) ?? "div by zero"
+let div2 = safe_divide(10, 0) ?? "div by zero"
+print("10/2 =", div1)
+print("10/0 =", div2)
+
+// --- Closures ---
+print("\n=== Closures ===")
+fn make_counter(start) {
+  let count = start
+  return {
+    inc: fn()   { count += 1; return count },
+    dec: fn()   { count -= 1; return count },
+    get: fn()   { return count },
+    reset: fn() { count = start }
+  }
+}
+
+let counter = make_counter(0)
+counter.inc()
+counter.inc()
+counter.inc()
+counter.dec()
+print("counter:", counter.get())
+
+// --- Async / spawn ---
+print("\n=== Async ===")
+fn slow_add(a, b) {
+  time.sleep(10)
+  return a + b
+}
+
+let t1 = time.now()
+let p1 = spawn slow_add(1, 2)
+let p2 = spawn slow_add(3, 4)
+let r1 = await p1
+let r2 = await p2
+let elapsed = time.now() - t1
+print("r1:", r1, "r2:", r2, "elapsed:", elapsed + "ms")
+
+// --- Recursion ---
+print("\n=== Recursion ===")
+fn fib(n) {
+  if n <= 1 { return n }
+  return fib(n - 1) + fib(n - 2)
+}
+
+let fibs = range(0, 10).map(fib)
+print("fibonacci:", fibs.join(", "))
+
+// --- JSON ---
+print("\n=== JSON ===")
+let data = { users: [{ name: "Alice", score: 99 }, { name: "Bob", score: 87 }] }
+let jstr = json.stringify(data)
+print("json:", jstr)
+let parsed = json.parse(jstr)
+print("parsed[0]:", parsed.users[0].name)
+
+print("\n✓ Tour complete!")

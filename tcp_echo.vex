@@ -1,0 +1,37 @@
+// examples/tcp_echo.vex
+// TCP echo server — accepts connections and echoes back
+
+fn handle_client(conn) {
+  let addr = net.remote_addr(conn)
+  print("client connected:", addr)
+
+  while true {
+    let data = recv conn
+    if is_err(data) {
+      break
+    }
+    let msg = data.trim()
+    if msg == "quit" || msg == "exit" {
+      send conn "bye!\n"
+      break
+    }
+    print("received from", addr + ":", msg)
+    send conn "echo: " + msg + "\n"
+  }
+
+  net.close(conn)
+  print("client disconnected:", addr)
+}
+
+let server = listen "0.0.0.0:9000"
+
+print("TCP echo server ready")
+
+while true {
+  let conn = net.accept(server)
+  if is_err(conn) {
+    print("accept error:", err_msg(conn))
+    break
+  }
+  spawn handle_client(conn)
+}
