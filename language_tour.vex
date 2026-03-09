@@ -30,10 +30,7 @@ print("sum:", sum)
 
 // --- Pipes ---
 print("\n=== Pipes ===")
-let result = [1,2,3,4,5,6,7,8,9,10]
-  |> fn(a) { a.filter(fn(n) { n % 2 == 0 }) }
-  |> fn(a) { a.map(fn(n) { n * n }) }
-  |> fn(a) { a.join(" + ") }
+let result = [1,2,3,4,5,6,7,8,9,10] |> fn(a) { a.filter(fn(n) { n % 2 == 0 }) }
 
 print("pipe result:", result)
 
