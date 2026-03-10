@@ -1,0 +1,320 @@
+// examples/new_features.vex
+// Showcasing all new vex-lang features
+
+print("╔══════════════════════════════════════╗")
+print("║     vex-lang new features tour       ║")
+print("╚══════════════════════════════════════╝\n")
+
+// ─────────────────────────────────────────────
+// 1. SHELL COMMANDS — $`...` syntax
+// ─────────────────────────────────────────────
+print("=== Shell Commands ===")
+
+let files = $`ls -la /tmp`
+print("exit ok:", files.success)
+print("output:", files.stdout)
+
+// With interpolation
+let path = "/tmp"
+let result = $`ls ${path}`
+print("files in /tmp:", result.stdout.split("\n").len, "items")
+
+// Quick shell via sh()
+let hostname = sh("hostname")
+print("hostname:", hostname)
+
+// exec() for direct binary calls
+let whoami = exec("whoami", [])
+print("user:", whoami.stdout)
+
+// ─────────────────────────────────────────────
+// 2. BACKGROUND PROCESSES — bg { }
+// ─────────────────────────────────────────────
+print("\n=== Background Processes ===")
+
+bg {
+  print("[bg] starting background work...")
+  time.sleep(50)
+  print("[bg] background work done!")
+}
+
+// Background shell command
+let proc_result = $`sleep 0.01 && echo done`
+print("proc success:", proc_result.success)
+
+time.sleep(100) // let bg finish
+
+// ─────────────────────────────────────────────
+// 3. STRUCT & IMPL
+// ─────────────────────────────────────────────
+print("\n=== Struct & Impl ===")
+
+struct Point {
+  x = 0,
+  y = 0
+}
+
+impl Point {
+  fn distance(self, other) {
+    let dx = self.x - other.x
+    let dy = self.y - other.y
+    return math.sqrt(dx ** 2 + dy ** 2)
+  }
+
+  fn to_string(self) {
+    return "Point(${self.x}, ${self.y})"
+  }
+}
+
+let p1 = new Point { x: 3, y: 4 }
+let p2 = new Point { x: 0, y: 0 }
+print("p1:", p1.to_string())
+print("distance p1→p2:", p1.distance(p2))
+
+struct User {
+  name = "anonymous",
+  age  = 0,
+  role = "user"
+}
+
+let alice = new User { name: "Alice", age: 30, role: "admin" }
+let bob   = User({ name: "Bob", age: 25 })
+
+print("alice:", alice.name, "role:", alice.role)
+print("bob:", bob.name, "age:", bob.age, "role:", bob.role)
+
+// ─────────────────────────────────────────────
+// 4. ENUM
+// ─────────────────────────────────────────────
+print("\n=== Enum ===")
+
+enum Status {
+  Pending = 0,
+  Active  = 1,
+  Closed  = 2,
+  Banned  = 3
+}
+
+enum Color {
+  Red   = "red",
+  Green = "green",
+  Blue  = "blue"
+}
+
+print("Status.Active:", Status.Active)
+print("Color.Red:", Color.Red)
+
+let user_status = Status.Active
+match user_status {
+  0 => { print("status: pending") }
+  1 => { print("status: active ✓") }
+  2 => { print("status: closed") }
+  _ => { print("status: unknown") }
+}
+
+// ─────────────────────────────────────────────
+// 5. TRY / CATCH / FINALLY
+// ─────────────────────────────────────────────
+print("\n=== Try / Catch / Finally ===")
+
+fn risky(x) {
+  if x == 0 { throw "division by zero is not allowed!" }
+  return 100 / x
+}
+
+try {
+  let r = risky(0)
+  print("result:", r)
+} catch err {
+  print("caught:", err)
+} finally {
+  print("finally block always runs")
+}
+
+try {
+  let r = risky(5)
+  print("success:", r)
+} catch err {
+  print("this won't run:", err)
+} finally {
+  print("cleanup done")
+}
+
+// ─────────────────────────────────────────────
+// 6. DO / WHILE
+// ─────────────────────────────────────────────
+print("\n=== Do / While ===")
+
+let count = 0
+do {
+  count += 1
+  print("  iteration:", count)
+} while count < 3
+
+print("do/while ran", count, "times")
+
+// ─────────────────────────────────────────────
+// 7. UNLESS / UNTIL / LOOP
+// ─────────────────────────────────────────────
+print("\n=== Unless / Until / Loop ===")
+
+let ready = false
+unless ready {
+  print("not ready yet, preparing...")
+  ready = true
+}
+
+let i = 0
+until i >= 3 {
+  print("  until loop:", i)
+  i += 1
+}
+
+// loop with break
+let ticks = 0
+loop {
+  ticks += 1
+  if ticks >= 3 { break }
+}
+print("loop ran", ticks, "ticks")
+
+// ─────────────────────────────────────────────
+// 8. IS / AS  (type checks + casts)
+// ─────────────────────────────────────────────
+print("\n=== Type Checks (is / as) ===")
+
+let vals = [42, "hello", true, null, [1,2,3], { a: 1 }]
+for val in vals {
+  let t = val is number ? "number" : val is string ? "string" :
+          val is bool   ? "bool"   : val is null   ? "null"   :
+          val is array  ? "array"  : "object"
+  print(" ", t, "→", val)
+}
+
+let n = "42" as number
+let s = 99   as string
+print("\"42\" as number:", n, "+1 =", n + 1)
+print("99 as string:", s, "+ \"!\" =", s + "!")
+
+// ─────────────────────────────────────────────
+// 9. RANGE OPERATOR ..
+// ─────────────────────────────────────────────
+print("\n=== Range Operator (..) ===")
+
+let nums = 1..5       // [1,2,3,4] exclusive
+let nums2 = 1..=5     // [1,2,3,4,5] inclusive
+
+print("1..5 =", nums.join(", "))
+print("1..=5 =", nums2.join(", "))
+
+let squares = (1..=10).map(fn(n) { n ** 2 })
+print("squares:", squares.join(", "))
+
+// ─────────────────────────────────────────────
+// 10. POWER OPERATOR ** and BITWISE OPS
+// ─────────────────────────────────────────────
+print("\n=== Power & Bitwise Ops ===")
+
+print("2 ** 10 =", 2 ** 10)
+print("3 ** 3  =", 3 ** 3)
+print("5 & 3   =", 5 & 3)
+print("5 ^ 3   =", 5 ^ 3)
+print("1 << 4  =", 1 << 4)
+print("64 >> 2 =", 64 >> 2)
+
+// ─────────────────────────────────────────────
+// 11. DEFER
+// ─────────────────────────────────────────────
+print("\n=== Defer ===")
+
+fn with_cleanup() {
+  defer print("  deferred: cleanup!")
+  print("  doing work...")
+  return "done"
+}
+
+let r = with_cleanup()
+print("result:", r)
+
+// ─────────────────────────────────────────────
+// 12. REGEX
+// ─────────────────────────────────────────────
+print("\n=== Regex ===")
+
+let re = regex("[0-9]+")
+print("test '123abc':", re.test("123abc"))
+print("test 'hello':", re.test("hello"))
+print("match_all '1a2b3c':", re.match_all("1a2b3c").join(", "))
+
+let email_re = regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+print("email valid:", email_re.test("alice@example.com"))
+print("email invalid:", email_re.test("not-an-email"))
+
+// ─────────────────────────────────────────────
+// 13. EMITTER (event system)
+// ─────────────────────────────────────────────
+print("\n=== Event Emitter ===")
+
+let bus = emitter()
+
+bus.on("message", fn(msg) {
+  print("  received message:", msg)
+})
+
+bus.on("error", fn(err) {
+  print("  error event:", err)
+})
+
+bus.emit("message", "hello from event!")
+bus.emit("message", "second message")
+bus.emit("error", "something went wrong")
+
+// ─────────────────────────────────────────────
+// 14. COMPOSE / PARTIAL / MEMOIZE
+// ─────────────────────────────────────────────
+print("\n=== Functional Utilities ===")
+
+let double = fn(x) { x * 2 }
+let add_ten = fn(x) { x + 10 }
+let to_str  = fn(x) { "result: " + str(x) }
+
+let pipeline = compose(double, add_ten, to_str)
+print("compose(double, add_ten, to_str)(5) =", pipeline(5))
+
+let add = fn(a, b) { a + b }
+let add5 = partial(add, 5)
+print("partial add5(3) =", add5(3))
+print("partial add5(10) =", add5(10))
+
+let call_count = 0
+fn slow_fib(n) {
+  call_count += 1
+  if n <= 1 { return n }
+  return slow_fib(n - 1) + slow_fib(n - 2)
+}
+
+let fast_fib = memoize(slow_fib)
+let fib10a = fast_fib(10)
+let fib10b = fast_fib(10)  // from cache
+print("fib(10) =", fib10a, "(called", call_count, "times)")
+
+// ─────────────────────────────────────────────
+// 15. TIMER UTILITIES
+// ─────────────────────────────────────────────
+print("\n=== Timers ===")
+
+set_timeout(fn() {
+  print("  timeout fired after 50ms!")
+}, 50)
+
+let tick = 0
+let stop_ticker = set_interval(fn() {
+  tick += 1
+  print("  tick:", tick)
+}, 20)
+
+time.sleep(80)
+stop_ticker()
+print("timer stopped at tick:", tick)
+
+print("\n✓ All new features demonstrated!")

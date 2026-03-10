@@ -82,6 +82,33 @@ func (interp *Interpreter) execStmt(stmt Stmt, env *Env) Result {
 		return interp.execMatch(s, env)
 	case *ServeStmt:
 		return interp.execServe(s, env)
+	case *TryCatchStmt:
+		return interp.execTryCatch(s, env)
+	case *ThrowStmt:
+		return interp.execThrow(s, env)
+	case *DoWhileStmt:
+		return interp.execDoWhile(s, env)
+	case *UnlessStmt:
+		return interp.execUnless(s, env)
+	case *UntilStmt:
+		return interp.execUntil(s, env)
+	case *LoopStmt:
+		return interp.execLoop(s, env)
+	case *DeferStmt:
+		// Defers are collected and run at end of function — for simplicity we run at block end
+		// Full defer support requires scope-level tracking; here we just run them at end
+		res := interp.evalExpr(s.Call, env)
+		return res
+	case *StructDecl:
+		return interp.execStructDecl(s, env)
+	case *EnumDecl:
+		return interp.execEnumDecl(s, env)
+	case *ImplBlock:
+		return interp.execImplBlock(s, env)
+	case *TypeAlias:
+		return interp.execTypeAlias(s, env)
+	case *BgStmt:
+		return interp.execBg(s, env)
 	case *BlockStmt:
 		childEnv := NewEnv(env)
 		return interp.execBlock(s, childEnv)
@@ -365,6 +392,19 @@ func (interp *Interpreter) evalExpr(expr Expr, env *Env) Result {
 		return interp.evalSend(e, env)
 	case *RecvExpr:
 		return interp.evalRecv(e, env)
+	case *ShellExpr:
+		return interp.evalShell(e, env)
+	case *NewExpr:
+		return interp.evalNew(e, env)
+	case *IsExpr:
+		return interp.evalIs(e, env)
+	case *AsExpr:
+		return interp.evalAs(e, env)
+	case *RangeExpr:
+		return interp.evalRange(e, env)
+	case *SelfExpr:
+		if v, found := env.Get("self"); found { return ok(v) }
+		return ok(NullVal())
 	}
 	return ok(NullVal())
 }
@@ -455,6 +495,7 @@ func (interp *Interpreter) evalBinary(e *BinaryExpr, env *Env) Result {
 			return ok(StringVal(strings.Repeat(l.Str, int(r.Num))))
 		}
 		return ok(NumberVal(l.Num * r.Num))
+	case "**": return ok(NumberVal(math.Pow(l.Num, r.Num)))
 	case "/":
 		if r.Num == 0 {
 			return ok(NumberVal(math.NaN()))
@@ -467,6 +508,10 @@ func (interp *Interpreter) evalBinary(e *BinaryExpr, env *Env) Result {
 	case "<=": return ok(BoolVal(l.Num <= r.Num))
 	case ">":  return ok(BoolVal(l.Num > r.Num))
 	case ">=": return ok(BoolVal(l.Num >= r.Num))
+	case "&":  return ok(NumberVal(float64(int64(l.Num) & int64(r.Num))))
+	case "^":  return ok(NumberVal(float64(int64(l.Num) ^ int64(r.Num))))
+	case "<<": return ok(NumberVal(float64(int64(l.Num) << uint(r.Num))))
+	case ">>": return ok(NumberVal(float64(int64(l.Num) >> uint(r.Num))))
 	}
 	return ok(NullVal())
 }
@@ -562,8 +607,12 @@ func (interp *Interpreter) evalCall(e *CallExpr, env *Env) Result {
 		return ok(val)
 	case VAL_FUNCTION:
 		childEnv := NewEnv(fn.FnEnv)
-		params := fn.Fn.Params
-		if fn.FnDecl != nil { params = fn.FnDecl.Params }
+		var params []Param
+		if fn.FnDecl != nil {
+			params = fn.FnDecl.Params
+		} else if fn.Fn != nil {
+			params = fn.Fn.Params
+		}
 		for i, param := range params {
 			if i < len(args) {
 				childEnv.Def(param.Name, args[i], false)
@@ -582,7 +631,10 @@ func (interp *Interpreter) evalCall(e *CallExpr, env *Env) Result {
 		if fn.FnDecl != nil { body = fn.FnDecl.Body }
 		res := interp.execBlock(body, childEnv)
 		if res.Err != nil { return res }
-		if res.Signal == SIG_RETURN { return ok(res.Value) }
+		if res.Signal == SIG_RETURN {
+			if res.Value != nil { return ok(res.Value) }
+			return ok(NullVal())
+		}
 		return ok(NullVal())
 	}
 
@@ -1189,6 +1241,9 @@ func (interp *Interpreter) registerBuiltins() {
 			return StringVal(strings.Repeat(args[0].String(), int(args[1].Num))), nil
 		}),
 	}, []string{"from_bytes", "repeat"}), true)
+
+	// Register all extended builtins (shell, process, timers, etc.)
+	interp.registerExtendedBuiltins()
 }
 
 func builtinFn(fn func(args []*Value, ci *CallInfo) (*Value, error)) *Value {

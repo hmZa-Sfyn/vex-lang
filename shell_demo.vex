@@ -1,0 +1,76 @@
+// examples/shell_demo.vex
+// vex as a shell scripting language
+
+// ── Basic shell commands ──
+let uname = $`uname -s`
+print("OS:", uname.stdout)
+
+let date = $`date`
+print("Date:", date.stdout)
+
+// ── Interpolation ──
+let dir = "/tmp"
+let listing = $`ls -la ${dir}`
+if listing.success {
+  let lines = listing.stdout.split("\n")
+  print("${dir} has", lines.len, "entries")
+} else {
+  print("failed:", listing.stderr)
+}
+
+// ── Pipe commands ──
+let top_procs = pipe_cmd("ps aux", "head -5")
+print("\nTop processes:\n" + top_procs)
+
+// ── Background process ──
+print("\nRunning background task...")
+let bg_proc = proc("sleep 0.1 && echo 'bg done'", true)
+print("BG pid:", bg_proc.pid)
+
+// Do other work while bg runs
+let fib = fn(n) {
+  if n <= 1 { return n }
+  return fib(n-1) + fib(n-2)
+}
+print("Computing fib(15) while waiting:", fib(15))
+
+// Wait for background to finish
+let bg_result = bg_proc.wait()
+print("BG result:", bg_result.stdout)
+
+// ── Error handling with shell ──
+let bad = $`cat /nonexistent_file_xyz`
+if !bad.success {
+  print("\nExpected error caught:", bad.stderr.trim())
+  print("Exit code:", bad.exit_code)
+}
+
+// ── Environment ──
+let home = os.env("HOME")
+let shell_env = os.env("SHELL")
+print("\nHOME:", home)
+print("SHELL:", shell_env)
+
+// Set and read env vars
+env_set("VEX_TEST", "hello_from_vex")
+let vex_val = os.env("VEX_TEST")
+print("VEX_TEST:", vex_val)
+
+// ── Script-style: file operations ──
+let tmpfile = "/tmp/vex_test_" + str(time.now()) + ".txt"
+os.write_file(tmpfile, "hello from vex!\nline 2\nline 3\n")
+
+let content = $`cat ${tmpfile}`
+print("\nWrote and read file:")
+for line in content.stdout.split("\n") {
+  if line != "" { print("  > " + line) }
+}
+
+// Cleanup
+$`rm -f ${tmpfile}`
+print("Cleaned up:", tmpfile)
+
+// ── Process info ──
+print("\nProcess info:")
+print("  PID:", process.pid)
+print("  CWD:", process.cwd())

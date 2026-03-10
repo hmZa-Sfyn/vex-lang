@@ -174,6 +174,30 @@ func (p *Parser) parseStmt() Stmt {
 		return p.parseMatch()
 	case TOKEN_SERVE:
 		return p.parseServe()
+	case TOKEN_TRY:
+		return p.parseTryCatch()
+	case TOKEN_THROW:
+		return p.parseThrow()
+	case TOKEN_DO:
+		return p.parseDoWhile()
+	case TOKEN_UNLESS:
+		return p.parseUnless()
+	case TOKEN_UNTIL:
+		return p.parseUntil()
+	case TOKEN_LOOP:
+		return p.parseLoop()
+	case TOKEN_DEFER:
+		return p.parseDefer()
+	case TOKEN_STRUCT:
+		return p.parseStructDecl()
+	case TOKEN_ENUM:
+		return p.parseEnumDecl()
+	case TOKEN_IMPL:
+		return p.parseImplBlock()
+	case TOKEN_TYPE:
+		return p.parseTypeAlias()
+	case TOKEN_BG:
+		return p.parseBgStmt()
 	case TOKEN_EOF:
 		return nil
 	default:
@@ -441,12 +465,19 @@ const (
 	PREC_AND       = 4
 	PREC_EQUAL     = 5
 	PREC_COMPARE   = 6
-	PREC_ADD       = 7
-	PREC_MUL       = 8
-	PREC_UNARY     = 9
-	PREC_CALL      = 10
-	PREC_MEMBER    = 11
-	PREC_PIPE      = 12
+	PREC_RANGE     = 7
+	PREC_BITOR     = 8
+	PREC_BITXOR    = 9
+	PREC_BITAND    = 10
+	PREC_SHIFT     = 11
+	PREC_ADD       = 12
+	PREC_MUL       = 13
+	PREC_POWER     = 14
+	PREC_UNARY     = 15
+	PREC_CALL      = 16
+	PREC_MEMBER    = 17
+	PREC_PIPE      = 18
+	PREC_IS_AS     = 19
 )
 
 func (p *Parser) getPrec(t Token) int {
@@ -463,10 +494,22 @@ func (p *Parser) getPrec(t Token) int {
 		return PREC_EQUAL
 	case TOKEN_LT, TOKEN_LTE, TOKEN_GT, TOKEN_GTE:
 		return PREC_COMPARE
+	case TOKEN_RANGE:
+		return PREC_RANGE
+	case TOKEN_AMP:
+		return PREC_BITAND
+	case TOKEN_CARET:
+		return PREC_BITXOR
+	case TOKEN_LSHIFT, TOKEN_RSHIFT:
+		return PREC_SHIFT
 	case TOKEN_PLUS, TOKEN_MINUS:
 		return PREC_ADD
 	case TOKEN_STAR, TOKEN_SLASH, TOKEN_PERCENT:
 		return PREC_MUL
+	case TOKEN_DOUBLE_STAR:
+		return PREC_POWER
+	case TOKEN_IS, TOKEN_AS:
+		return PREC_IS_AS
 	case TOKEN_LPAREN:
 		return PREC_CALL
 	case TOKEN_DOT, TOKEN_LBRACKET:
@@ -519,10 +562,30 @@ func (p *Parser) parsePrecedence(minPrec int) Expr {
 			TOKEN_EQ, TOKEN_NEQ,
 			TOKEN_LT, TOKEN_LTE, TOKEN_GT, TOKEN_GTE,
 			TOKEN_PLUS, TOKEN_MINUS,
-			TOKEN_STAR, TOKEN_SLASH, TOKEN_PERCENT:
+			TOKEN_STAR, TOKEN_SLASH, TOKEN_PERCENT,
+			TOKEN_AMP, TOKEN_CARET, TOKEN_LSHIFT, TOKEN_RSHIFT:
 			p.advance()
 			right := p.parsePrecedence(prec + 1)
 			left = &BinaryExpr{position: position{t.Line, t.Col, p.file}, Op: t.Literal, Left: left, Right: right}
+		case TOKEN_DOUBLE_STAR:
+			p.advance()
+			// right-associative
+			right := p.parsePrecedence(PREC_POWER)
+			left = &BinaryExpr{position: position{t.Line, t.Col, p.file}, Op: "**", Left: left, Right: right}
+		case TOKEN_RANGE:
+			p.advance()
+			inclusive := false
+			if p.peek().Type == TOKEN_ASSIGN { p.advance(); inclusive = true }
+			right := p.parsePrecedence(prec + 1)
+			left = &RangeExpr{position: position{t.Line, t.Col, p.file}, Start: left, End: right, Inclusive: inclusive}
+		case TOKEN_IS:
+			p.advance()
+			typeT, _ := p.expect(TOKEN_IDENT)
+			left = &IsExpr{position: position{t.Line, t.Col, p.file}, Value: left, TypeName: typeT.Literal}
+		case TOKEN_AS:
+			p.advance()
+			typeT, _ := p.expect(TOKEN_IDENT)
+			left = &AsExpr{position: position{t.Line, t.Col, p.file}, Value: left, TypeName: typeT.Literal}
 		case TOKEN_DOT:
 			p.advance()
 			keyT, _ := p.expect(TOKEN_IDENT)
@@ -565,6 +628,10 @@ func (p *Parser) parseUnary() Expr {
 		p.advance()
 		operand := p.parseUnary()
 		return &UnaryExpr{position: position{t.Line, t.Col, p.file}, Op: t.Literal, Operand: operand}
+	case TOKEN_TILDE:
+		p.advance()
+		operand := p.parseUnary()
+		return &UnaryExpr{position: position{t.Line, t.Col, p.file}, Op: "~", Operand: operand}
 	case TOKEN_SPAWN:
 		p.advance()
 		call := p.parseExpr()
@@ -583,6 +650,10 @@ func (p *Parser) parseUnary() Expr {
 		return p.parseSend()
 	case TOKEN_RECV:
 		return p.parseRecv()
+	case TOKEN_SHELL:
+		return p.parseShellExpr()
+	case TOKEN_NEW:
+		return p.parseNewExpr()
 	}
 
 	return p.parsePrimary()
@@ -687,6 +758,14 @@ func (p *Parser) parsePrimary() Expr {
 		p.advance()
 		return &Ident{position: position{t.Line, t.Col, p.file}, Name: t.Literal}
 
+	case TOKEN_SELF:
+		p.advance()
+		return &SelfExpr{position: position{t.Line, t.Col, p.file}}
+
+	case TOKEN_SHELL:
+		p.advance()
+		return &ShellExpr{position: position{t.Line, t.Col, p.file}, Command: t.Literal}
+
 	case TOKEN_FN:
 		return p.parseFnLit()
 
@@ -775,4 +854,207 @@ func (p *Parser) parseObjectLit() *ObjectLit {
 	}
 	p.expect(TOKEN_RBRACE)
 	return &ObjectLit{position: pos, Keys: keys, Values: vals}
+}
+
+// ======== NEW STATEMENT PARSERS ========
+
+func (p *Parser) parseTryCatch() *TryCatchStmt {
+	t := p.advance() // eat 'try'
+	pos := position{t.Line, t.Col, p.file}
+	body := p.parseBlock()
+
+	var catchVar string
+	var catchBlock *BlockStmt
+	var finallyBlock *BlockStmt
+
+	p.skipNL()
+	if p.check(TOKEN_CATCH) {
+		p.advance()
+		// optional: catch err { }
+		if p.check(TOKEN_IDENT) {
+			catchVar = p.advance().Literal
+		} else if p.check(TOKEN_LPAREN) {
+			p.advance()
+			catchVar = p.advance().Literal
+			p.expect(TOKEN_RPAREN)
+		}
+		catchBlock = p.parseBlock()
+		p.skipNL()
+	}
+
+	if p.check(TOKEN_FINALLY) {
+		p.advance()
+		finallyBlock = p.parseBlock()
+	}
+
+	return &TryCatchStmt{position: pos, Body: body, CatchVar: catchVar, Catch: catchBlock, Finally: finallyBlock}
+}
+
+func (p *Parser) parseThrow() *ThrowStmt {
+	t := p.advance()
+	pos := position{t.Line, t.Col, p.file}
+	val := p.parseExpr()
+	return &ThrowStmt{position: pos, Value: val}
+}
+
+func (p *Parser) parseDoWhile() *DoWhileStmt {
+	t := p.advance() // eat 'do'
+	pos := position{t.Line, t.Col, p.file}
+	body := p.parseBlock()
+	p.skipNL()
+	if _, ok := p.expect(TOKEN_WHILE); !ok {
+		p.errorHint(p.peek(), "expected 'while' after 'do' block", "do/while syntax: do { } while condition", "add 'while <cond>' after the block")
+	}
+	cond := p.parseExpr()
+	return &DoWhileStmt{position: pos, Body: body, Cond: cond}
+}
+
+func (p *Parser) parseUnless() *UnlessStmt {
+	t := p.advance()
+	pos := position{t.Line, t.Col, p.file}
+	cond := p.parseExpr()
+	body := p.parseBlock()
+	var els Stmt
+	p.skipNL()
+	if p.check(TOKEN_ELSE) {
+		p.advance()
+		p.skipNL()
+		if p.check(TOKEN_UNLESS) { els = p.parseUnless() } else { els = p.parseBlock() }
+	}
+	return &UnlessStmt{position: pos, Cond: cond, Body: body, Else: els}
+}
+
+func (p *Parser) parseUntil() *UntilStmt {
+	t := p.advance()
+	pos := position{t.Line, t.Col, p.file}
+	cond := p.parseExpr()
+	body := p.parseBlock()
+	return &UntilStmt{position: pos, Cond: cond, Body: body}
+}
+
+func (p *Parser) parseLoop() *LoopStmt {
+	t := p.advance()
+	pos := position{t.Line, t.Col, p.file}
+	body := p.parseBlock()
+	return &LoopStmt{position: pos, Body: body}
+}
+
+func (p *Parser) parseDefer() *DeferStmt {
+	t := p.advance()
+	pos := position{t.Line, t.Col, p.file}
+	call := p.parseExpr()
+	return &DeferStmt{position: pos, Call: call}
+}
+
+func (p *Parser) parseBgStmt() *BgStmt {
+	t := p.advance()
+	pos := position{t.Line, t.Col, p.file}
+	body := p.parseBlock()
+	return &BgStmt{position: pos, Body: body}
+}
+
+func (p *Parser) parseStructDecl() *StructDecl {
+	t := p.advance() // eat 'struct'
+	pos := position{t.Line, t.Col, p.file}
+	nameT, _ := p.expect(TOKEN_IDENT)
+	p.skipNL()
+	p.expect(TOKEN_LBRACE)
+	var fields []StructField
+	p.skipNL()
+	for !p.check(TOKEN_RBRACE) && !p.check(TOKEN_EOF) {
+		fieldT, _ := p.expect(TOKEN_IDENT)
+		var def Expr
+		// optional default: field = value
+		if p.eat(TOKEN_ASSIGN) {
+			def = p.parseExpr()
+		}
+		fields = append(fields, StructField{Name: fieldT.Literal, Default: def})
+		p.eat(TOKEN_COMMA)
+		p.skipNL()
+	}
+	p.expect(TOKEN_RBRACE)
+	return &StructDecl{position: pos, Name: nameT.Literal, Fields: fields}
+}
+
+func (p *Parser) parseEnumDecl() *EnumDecl {
+	t := p.advance() // eat 'enum'
+	pos := position{t.Line, t.Col, p.file}
+	nameT, _ := p.expect(TOKEN_IDENT)
+	p.skipNL()
+	p.expect(TOKEN_LBRACE)
+	var variants []EnumVariant
+	p.skipNL()
+	for !p.check(TOKEN_RBRACE) && !p.check(TOKEN_EOF) {
+		varT, _ := p.expect(TOKEN_IDENT)
+		var val Expr
+		if p.eat(TOKEN_ASSIGN) {
+			val = p.parseExpr()
+		}
+		variants = append(variants, EnumVariant{Name: varT.Literal, Value: val})
+		p.eat(TOKEN_COMMA)
+		p.skipNL()
+	}
+	p.expect(TOKEN_RBRACE)
+	return &EnumDecl{position: pos, Name: nameT.Literal, Variants: variants}
+}
+
+func (p *Parser) parseImplBlock() *ImplBlock {
+	t := p.advance() // eat 'impl'
+	pos := position{t.Line, t.Col, p.file}
+	targetT, _ := p.expect(TOKEN_IDENT)
+	p.skipNL()
+	p.expect(TOKEN_LBRACE)
+	var methods []*FnDecl
+	p.skipNL()
+	for !p.check(TOKEN_RBRACE) && !p.check(TOKEN_EOF) {
+		if p.check(TOKEN_FN) {
+			fn := p.parseFnDecl()
+			if fn != nil { methods = append(methods, fn) }
+		} else {
+			p.advance()
+		}
+		p.skipNL()
+	}
+	p.expect(TOKEN_RBRACE)
+	return &ImplBlock{position: pos, Target: targetT.Literal, Methods: methods}
+}
+
+func (p *Parser) parseTypeAlias() *TypeAlias {
+	t := p.advance() // eat 'type'
+	pos := position{t.Line, t.Col, p.file}
+	nameT, _ := p.expect(TOKEN_IDENT)
+	p.expect(TOKEN_ASSIGN)
+	valT, _ := p.expect(TOKEN_IDENT)
+	return &TypeAlias{position: pos, Name: nameT.Literal, Value: valT.Literal}
+}
+
+// ======== NEW EXPRESSION PARSERS ========
+
+func (p *Parser) parseShellExpr() *ShellExpr {
+	t := p.advance()
+	return &ShellExpr{position: position{t.Line, t.Col, p.file}, Command: t.Literal}
+}
+
+func (p *Parser) parseNewExpr() *NewExpr {
+	t := p.advance() // eat 'new'
+	pos := position{t.Line, t.Col, p.file}
+	nameT, _ := p.expect(TOKEN_IDENT)
+	fields := map[string]Expr{}
+	var keys []string
+	if p.checkSkipNL(TOKEN_LBRACE) {
+		p.skipNL()
+		p.advance()
+		p.skipNL()
+		for !p.check(TOKEN_RBRACE) && !p.check(TOKEN_EOF) {
+			keyT, _ := p.expect(TOKEN_IDENT)
+			p.expect(TOKEN_COLON)
+			val := p.parseExpr()
+			fields[keyT.Literal] = val
+			keys = append(keys, keyT.Literal)
+			p.eat(TOKEN_COMMA)
+			p.skipNL()
+		}
+		p.expect(TOKEN_RBRACE)
+	}
+	return &NewExpr{position: pos, TypeName: nameT.Literal, Fields: fields, Keys: keys}
 }

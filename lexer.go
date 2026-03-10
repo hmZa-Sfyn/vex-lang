@@ -247,6 +247,27 @@ func (l *Lexer) Tokenize() ([]Token, []*VexError) {
 			continue
 		}
 
+		// Shell command literal: $`ls -la ${path}`
+		if ch == '$' && l.peek() == '`' {
+			l.advance() // eat `
+			l.advance()
+			tok := l.readString('`', line, col)
+			tok.Type = TOKEN_SHELL
+			tokens = append(tokens, tok)
+			continue
+		}
+
+		// Shell command literal: $"cmd" or $'cmd'
+		if ch == '$' && (l.peek() == '"' || l.peek() == '\'') {
+			quote := l.peek()
+			l.advance()
+			l.advance()
+			tok := l.readString(quote, line, col)
+			tok.Type = TOKEN_SHELL
+			tokens = append(tokens, tok)
+			continue
+		}
+
 		// Numbers
 		if unicode.IsDigit(ch) || (ch == '.' && unicode.IsDigit(l.peekAt(1))) {
 			tokens = append(tokens, l.readNumber(line, col))
@@ -267,7 +288,7 @@ func (l *Lexer) Tokenize() ([]Token, []*VexError) {
 		case '-':
 			if l.peek() == '>' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_ARROW, "->", line, col)) } else if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_MINUS_ASSIGN, "-=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_MINUS, "-", line, col)) }
 		case '*':
-			if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_STAR_ASSIGN, "*=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_STAR, "*", line, col)) }
+			if l.peek() == '*' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_DOUBLE_STAR, "**", line, col)) } else if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_STAR_ASSIGN, "*=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_STAR, "*", line, col)) }
 		case '/':
 			if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_SLASH_ASSIGN, "/=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_SLASH, "/", line, col)) }
 		case '%':
@@ -277,13 +298,17 @@ func (l *Lexer) Tokenize() ([]Token, []*VexError) {
 		case '!':
 			if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_NEQ, "!=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_NOT, "!", line, col)) }
 		case '<':
-			if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_LTE, "<=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_LT, "<", line, col)) }
+			if l.peek() == '<' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_LSHIFT, "<<", line, col)) } else if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_LTE, "<=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_LT, "<", line, col)) }
 		case '>':
-			if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_GTE, ">=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_GT, ">", line, col)) }
+			if l.peek() == '>' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_RSHIFT, ">>", line, col)) } else if l.peek() == '=' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_GTE, ">=", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_GT, ">", line, col)) }
 		case '&':
-			if l.peek() == '&' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_AND, "&&", line, col)) } else {
-				l.errors = append(l.errors, NewVexError(ERR_SYNTAX, "unexpected character '&'", l.file, line, col, l.lines, "single '&' is not valid in vex", "did you mean '&&' for logical and?"))
-			}
+			if l.peek() == '&' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_AND, "&&", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_AMP, "&", line, col)) }
+		case '^':
+			tokens = append(tokens, l.makeToken(TOKEN_CARET, "^", line, col))
+		case '~':
+			tokens = append(tokens, l.makeToken(TOKEN_TILDE, "~", line, col))
+		case '@':
+			tokens = append(tokens, l.makeToken(TOKEN_AT, "@", line, col))
 		case '|':
 			if l.peek() == '|' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_OR, "||", line, col)) } else if l.peek() == '>' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_PIPE, "|>", line, col)) } else {
 				l.errors = append(l.errors, NewVexError(ERR_SYNTAX, "unexpected character '|'", l.file, line, col, l.lines, "single '|' is not valid", "use '||' for logical or, or '|>' for pipe"))
@@ -291,7 +316,7 @@ func (l *Lexer) Tokenize() ([]Token, []*VexError) {
 		case '?':
 			if l.peek() == '?' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_COALESCE, "??", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_QUESTION, "?", line, col)) }
 		case '.':
-			if l.peek() == '.' && l.peekAt(1) == '.' { l.advance(); l.advance(); tokens = append(tokens, l.makeToken(TOKEN_SPREAD, "...", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_DOT, ".", line, col)) }
+			if l.peek() == '.' && l.peekAt(1) == '.' { l.advance(); l.advance(); tokens = append(tokens, l.makeToken(TOKEN_SPREAD, "...", line, col)) } else if l.peek() == '.' { l.advance(); tokens = append(tokens, l.makeToken(TOKEN_RANGE, "..", line, col)) } else { tokens = append(tokens, l.makeToken(TOKEN_DOT, ".", line, col)) }
 		case '(':  tokens = append(tokens, l.makeToken(TOKEN_LPAREN, "(", line, col))
 		case ')':  tokens = append(tokens, l.makeToken(TOKEN_RPAREN, ")", line, col))
 		case '{':  tokens = append(tokens, l.makeToken(TOKEN_LBRACE, "{", line, col))

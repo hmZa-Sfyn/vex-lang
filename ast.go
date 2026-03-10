@@ -363,3 +363,189 @@ type FnDecl struct {
 }
 func (s *FnDecl) nodeType() string { return "FnDecl" }
 func (s *FnDecl) stmtNode()        {}
+
+// ======== NEW STATEMENTS ========
+
+// TryCatchStmt: try { } catch e { } finally { }
+type TryCatchStmt struct {
+	position
+	Body    *BlockStmt
+	CatchVar string
+	Catch   *BlockStmt  // nil if no catch
+	Finally *BlockStmt  // nil if no finally
+}
+func (s *TryCatchStmt) nodeType() string { return "TryCatchStmt" }
+func (s *TryCatchStmt) stmtNode()        {}
+
+// ThrowStmt: throw expr
+type ThrowStmt struct {
+	position
+	Value Expr
+}
+func (s *ThrowStmt) nodeType() string { return "ThrowStmt" }
+func (s *ThrowStmt) stmtNode()        {}
+
+// DoWhileStmt: do { } while cond
+type DoWhileStmt struct {
+	position
+	Body *BlockStmt
+	Cond Expr
+}
+func (s *DoWhileStmt) nodeType() string { return "DoWhileStmt" }
+func (s *DoWhileStmt) stmtNode()        {}
+
+// UnlessStmt: unless cond { } (inverted if)
+type UnlessStmt struct {
+	position
+	Cond Expr
+	Body *BlockStmt
+	Else Stmt
+}
+func (s *UnlessStmt) nodeType() string { return "UnlessStmt" }
+func (s *UnlessStmt) stmtNode()        {}
+
+// UntilStmt: until cond { } (inverted while)
+type UntilStmt struct {
+	position
+	Cond Expr
+	Body *BlockStmt
+}
+func (s *UntilStmt) nodeType() string { return "UntilStmt" }
+func (s *UntilStmt) stmtNode()        {}
+
+// LoopStmt: loop { } (infinite loop)
+type LoopStmt struct {
+	position
+	Body *BlockStmt
+}
+func (s *LoopStmt) nodeType() string { return "LoopStmt" }
+func (s *LoopStmt) stmtNode()        {}
+
+// DeferStmt: defer expr (runs at end of scope)
+type DeferStmt struct {
+	position
+	Call Expr
+}
+func (s *DeferStmt) nodeType() string { return "DeferStmt" }
+func (s *DeferStmt) stmtNode()        {}
+
+// ForFinallyStmt: for ... in ... { } finally { }
+type ForFinallyStmt struct {
+	position
+	Key     string
+	Value   string
+	Iter    Expr
+	Body    *BlockStmt
+	Finally *BlockStmt
+}
+func (s *ForFinallyStmt) nodeType() string { return "ForFinallyStmt" }
+func (s *ForFinallyStmt) stmtNode()        {}
+
+// StructDecl: struct Name { field: Type, ... }
+type StructDecl struct {
+	position
+	Name   string
+	Fields []StructField
+}
+func (s *StructDecl) nodeType() string { return "StructDecl" }
+func (s *StructDecl) stmtNode()        {}
+
+type StructField struct {
+	Name    string
+	Default Expr   // optional default value
+}
+
+// EnumDecl: enum Name { Variant1, Variant2(val), ... }
+type EnumDecl struct {
+	position
+	Name     string
+	Variants []EnumVariant
+}
+func (s *EnumDecl) nodeType() string { return "EnumDecl" }
+func (s *EnumDecl) stmtNode()        {}
+
+type EnumVariant struct {
+	Name  string
+	Value Expr // optional associated value
+}
+
+// ImplBlock: impl StructName { fn method(self) { } }
+type ImplBlock struct {
+	position
+	Target  string
+	Methods []*FnDecl
+}
+func (s *ImplBlock) nodeType() string { return "ImplBlock" }
+func (s *ImplBlock) stmtNode()        {}
+
+// TypeAlias: type Name = ...
+type TypeAlias struct {
+	position
+	Name  string
+	Value string
+}
+func (s *TypeAlias) nodeType() string { return "TypeAlias" }
+func (s *TypeAlias) stmtNode()        {}
+
+// BgStmt: bg { ... } — background block
+type BgStmt struct {
+	position
+	Body *BlockStmt
+}
+func (s *BgStmt) nodeType() string { return "BgStmt" }
+func (s *BgStmt) stmtNode()        {}
+
+// ======== NEW EXPRESSIONS ========
+
+// ShellExpr: $`ls -la ${path}` or shell "cmd"
+type ShellExpr struct {
+	position
+	Command string // raw command template
+	Bg      bool   // run in background
+}
+func (e *ShellExpr) nodeType() string { return "ShellExpr" }
+func (e *ShellExpr) exprNode()        {}
+
+// NewExpr: new StructName { field: val }
+type NewExpr struct {
+	position
+	TypeName string
+	Fields   map[string]Expr
+	Keys     []string
+}
+func (e *NewExpr) nodeType() string { return "NewExpr" }
+func (e *NewExpr) exprNode()        {}
+
+// IsExpr: value is TypeName
+type IsExpr struct {
+	position
+	Value    Expr
+	TypeName string
+}
+func (e *IsExpr) nodeType() string { return "IsExpr" }
+func (e *IsExpr) exprNode()        {}
+
+// AsExpr: value as string
+type AsExpr struct {
+	position
+	Value    Expr
+	TypeName string
+}
+func (e *AsExpr) nodeType() string { return "AsExpr" }
+func (e *AsExpr) exprNode()        {}
+
+// RangeExpr: start..end
+type RangeExpr struct {
+	position
+	Start     Expr
+	End       Expr
+	Inclusive bool // true for ..= 
+}
+func (e *RangeExpr) nodeType() string { return "RangeExpr" }
+func (e *RangeExpr) exprNode()        {}
+
+// SelfExpr: self
+type SelfExpr struct{ position }
+func (e *SelfExpr) nodeType() string { return "SelfExpr" }
+func (e *SelfExpr) exprNode()        {}
+

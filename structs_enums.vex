@@ -1,0 +1,162 @@
+// examples/structs_enums.vex
+// Advanced struct, enum, and impl usage
+
+// ── Simple struct ──
+struct Vec2 {
+  x = 0,
+  y = 0
+}
+
+impl Vec2 {
+  fn add(self, other) {
+    return new Vec2 { x: self.x + other.x, y: self.y + other.y }
+  }
+  fn scale(self, factor) {
+    return new Vec2 { x: self.x * factor, y: self.y * factor }
+  }
+  fn length(self) {
+    return math.sqrt(self.x ** 2 + self.y ** 2)
+  }
+  fn normalize(self) {
+    let len = self.length()
+    if len == 0 { return new Vec2 { x: 0, y: 0 } }
+    return new Vec2 { x: self.x / len, y: self.y / len }
+  }
+  fn dot(self, other) {
+    return self.x * other.x + self.y * other.y
+  }
+  fn to_string(self) {
+    return "Vec2(${self.x}, ${self.y})"
+  }
+}
+
+let v1 = new Vec2 { x: 3, y: 4 }
+let v2 = new Vec2 { x: 1, y: 2 }
+
+print("=== Vec2 ===")
+print("v1:", v1.to_string())
+print("v2:", v2.to_string())
+print("v1.length():", v1.length())
+print("v1 + v2:", v1.add(v2).to_string())
+print("v1 * 2:", v1.scale(2).to_string())
+print("v1 dot v2:", v1.dot(v2))
+
+// ── HTTP Request struct ──
+struct HttpRequest {
+  method = "GET",
+  url    = "",
+  headers = {},
+  body   = null,
+  timeout = 5000
+}
+
+impl HttpRequest {
+  fn with_header(self, key, val) {
+    self.headers[key] = val
+    return self
+  }
+  fn with_body(self, b) {
+    self.body = b
+    self.method = "POST"
+    return self
+  }
+  fn describe(self) {
+    return "${self.method} ${self.url}"
+  }
+}
+
+let req = new HttpRequest { url: "https://api.example.com/data" }
+print("\n=== HttpRequest ===")
+print(req.describe())
+print("method:", req.method)
+
+// ── Enums for state machines ──
+enum TrafficLight {
+  Red    = "stop",
+  Yellow = "slow",
+  Green  = "go"
+}
+
+enum Direction {
+  North = 0,
+  East  = 90,
+  South = 180,
+  West  = 270
+}
+
+print("\n=== Enums ===")
+print("TrafficLight.Red:", TrafficLight.Red)
+print("Direction.East:", Direction.East, "degrees")
+
+fn next_light(current) {
+  match current {
+    "stop" => { return TrafficLight.Green }
+    "go"   => { return TrafficLight.Yellow }
+    _      => { return TrafficLight.Red }
+  }
+}
+
+let light = TrafficLight.Red
+print("Starting at:", light)
+light = next_light(light)
+print("Next:", light)
+light = next_light(light)
+print("Next:", light)
+
+// ── Linked list via structs ──
+struct ListNode {
+  value = null,
+  next  = null
+}
+
+fn make_list(values) {
+  if values.len == 0 { return null }
+  let head = new ListNode { value: values[0] }
+  let cur = head
+  let i = 1
+  while i < values.len {
+    let node = new ListNode { value: values[i] }
+    cur.next = node
+    cur = node
+    i += 1
+  }
+  return head
+}
+
+fn list_to_array(head) {
+  let arr = []
+  let cur = head
+  while cur != null {
+    arr.push(cur.value)
+    cur = cur.next
+  }
+  return arr
+}
+
+print("\n=== Linked List ===")
+let lst = make_list([10, 20, 30, 40, 50])
+print("list:", list_to_array(lst).join(" -> "))
+
+// ── Enum-style result type ──
+enum ResultType {
+  Ok  = "ok",
+  Err = "err"
+}
+
+fn safe_parse(s) {
+  let n = s as number
+  if n != n {  // NaN check
+    return { type: ResultType.Err, error: "cannot parse '${s}' as number" }
+  }
+  return { type: ResultType.Ok, value: n }
+}
+
+print("\n=== Result type pattern ===")
+for input in ["42", "3.14", "hello", "0"] {
+  let r = safe_parse(input)
+  if r.type == ResultType.Ok {
+    print("  parse '${input}' =>", r.value)
+  } else {
+    print("  parse '${input}' => error:", r.error)
+  }
+}

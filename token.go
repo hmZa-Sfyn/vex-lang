@@ -30,6 +30,32 @@ const (
 	TOKEN_AWAIT
 	TOKEN_YIELD
 
+	// New control flow
+	TOKEN_TRY
+	TOKEN_CATCH
+	TOKEN_FINALLY
+	TOKEN_THROW
+	TOKEN_DO
+	TOKEN_UNLESS  // unless cond { } (inverted if)
+	TOKEN_UNTIL   // until cond { } (inverted while)
+	TOKEN_LOOP    // infinite loop { }
+	TOKEN_DEFER   // defer fn call
+
+	// Type system
+	TOKEN_STRUCT
+	TOKEN_ENUM
+	TOKEN_TYPE
+	TOKEN_IMPL   // impl StructName { fn ... }
+	TOKEN_SELF   // self reference inside impl
+	TOKEN_NEW    // new StructName { ... }
+	TOKEN_IS     // type check: x is TypeName
+	TOKEN_AS     // type cast: x as string
+
+	// Shell / process
+	TOKEN_SHELL  // shell "cmd"  or  $ backtick
+	TOKEN_BG     // bg { ... }  background block
+	TOKEN_PROC   // proc keyword
+
 	// Network keywords
 	TOKEN_SERVE   // start HTTP server
 	TOKEN_CONNECT // TCP/UDP connect
@@ -67,6 +93,15 @@ const (
 	TOKEN_SPREAD  // ...
 	TOKEN_QUESTION // ?
 	TOKEN_COALESCE // ??
+	TOKEN_DOUBLE_STAR // **  (power)
+	TOKEN_AMP         // &   (bitwise and / address-of)
+	TOKEN_CARET       // ^   (bitwise xor)
+	TOKEN_TILDE       // ~   (bitwise not)
+	TOKEN_LSHIFT      // <<
+	TOKEN_RSHIFT      // >>
+	TOKEN_RANGE       // ..  (range operator)
+	TOKEN_HASH        // #!  shell line / shebang
+	TOKEN_AT          // @   decorator
 
 	// Delimiters
 	TOKEN_LPAREN
@@ -110,6 +145,26 @@ var tokenNames = map[TokenType]string{
 	TOKEN_SPAWN:      "spawn",
 	TOKEN_AWAIT:      "await",
 	TOKEN_YIELD:      "yield",
+	TOKEN_TRY:        "try",
+	TOKEN_CATCH:      "catch",
+	TOKEN_FINALLY:    "finally",
+	TOKEN_THROW:      "throw",
+	TOKEN_DO:         "do",
+	TOKEN_UNLESS:     "unless",
+	TOKEN_UNTIL:      "until",
+	TOKEN_LOOP:       "loop",
+	TOKEN_DEFER:      "defer",
+	TOKEN_STRUCT:     "struct",
+	TOKEN_ENUM:       "enum",
+	TOKEN_TYPE:       "type",
+	TOKEN_IMPL:       "impl",
+	TOKEN_SELF:       "self",
+	TOKEN_NEW:        "new",
+	TOKEN_IS:         "is",
+	TOKEN_AS:         "as",
+	TOKEN_SHELL:      "shell",
+	TOKEN_BG:         "bg",
+	TOKEN_PROC:       "proc",
 	TOKEN_SERVE:      "serve",
 	TOKEN_CONNECT:    "connect",
 	TOKEN_LISTEN:     "listen",
@@ -144,6 +199,14 @@ var tokenNames = map[TokenType]string{
 	TOKEN_SPREAD:     "...",
 	TOKEN_QUESTION:   "?",
 	TOKEN_COALESCE:   "??",
+	TOKEN_DOUBLE_STAR: "**",
+	TOKEN_AMP:        "&",
+	TOKEN_CARET:      "^",
+	TOKEN_TILDE:      "~",
+	TOKEN_LSHIFT:     "<<",
+	TOKEN_RSHIFT:     ">>",
+	TOKEN_RANGE:      "..",
+	TOKEN_AT:         "@",
 	TOKEN_LPAREN:     "(",
 	TOKEN_RPAREN:     ")",
 	TOKEN_LBRACE:     "{",
@@ -193,6 +256,26 @@ var keywords = map[string]TokenType{
 	"spawn":    TOKEN_SPAWN,
 	"await":    TOKEN_AWAIT,
 	"yield":    TOKEN_YIELD,
+	"try":      TOKEN_TRY,
+	"catch":    TOKEN_CATCH,
+	"finally":  TOKEN_FINALLY,
+	"throw":    TOKEN_THROW,
+	"do":       TOKEN_DO,
+	"unless":   TOKEN_UNLESS,
+	"until":    TOKEN_UNTIL,
+	"loop":     TOKEN_LOOP,
+	"defer":    TOKEN_DEFER,
+	"struct":   TOKEN_STRUCT,
+	"enum":     TOKEN_ENUM,
+	"type":     TOKEN_TYPE,
+	"impl":     TOKEN_IMPL,
+	"self":     TOKEN_SELF,
+	"new":      TOKEN_NEW,
+	"is":       TOKEN_IS,
+	"as":       TOKEN_AS,
+	"shell":    TOKEN_SHELL,
+	"bg":       TOKEN_BG,
+	"proc":     TOKEN_PROC,
 	"true":     TOKEN_BOOL,
 	"false":    TOKEN_BOOL,
 	"null":     TOKEN_NULL,
