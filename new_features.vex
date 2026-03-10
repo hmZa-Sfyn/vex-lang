@@ -10,13 +10,13 @@ print("╚═══════════════════════�
 // ─────────────────────────────────────────────
 print("=== Shell Commands ===")
 
-let files = $`ls -la /tmp`
+let files = `ls -la /tmp`
 print("exit ok:", files.success)
 print("output:", files.stdout)
 
 // With interpolation
 let path = "/tmp"
-let result = $`ls ${path}`
+let result = `ls ${path}`
 print("files in /tmp:", result.stdout.split("\n").len, "items")
 
 // Quick shell via sh()
@@ -39,7 +39,7 @@ bg {
 }
 
 // Background shell command
-let proc_result = $`sleep 0.01 && echo done`
+let proc_result = `sleep 0.01 && echo done`
 print("proc success:", proc_result.success)
 
 time.sleep(100) // let bg finish
